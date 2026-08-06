@@ -1,15 +1,13 @@
-"use client";
-
 import { PageHeader } from "@/components/shared/page-header";
 import { TrendExplorer } from "@/components/shared/trend-explorer";
 import { PostExplorer } from "@/components/shared/post-explorer";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { TRENDS } from "@/lib/data/generators/trends";
-import { POSTS } from "@/lib/data/generators/posts";
+import { getTrends, getPosts } from "@/lib/api/fetchers";
 
-export default function ViraisPage() {
-  const viralTrends = TRENDS.filter((t) => t.status === "viral" || t.status === "explodindo");
-  const viralPosts = [...POSTS].sort((a, b) => b.metrics.views - a.metrics.views);
+export default async function ViraisPage() {
+  const [trends, posts] = await Promise.all([getTrends(), getPosts()]);
+  const viralTrends = trends.filter((t) => t.status === "viral" || t.status === "explodindo");
+  const viralPosts = [...posts].sort((a, b) => b.metrics.views - a.metrics.views);
 
   return (
     <div>

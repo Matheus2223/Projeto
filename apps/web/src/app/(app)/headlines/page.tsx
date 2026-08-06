@@ -1,15 +1,17 @@
 import { PageHeader } from "@/components/shared/page-header";
 import { BankExplorer } from "@/components/shared/bank-explorer";
-import { BANKS } from "@/lib/data/generators/banks";
+import { getBankItems } from "@/lib/api/fetchers";
 
-export default function HeadlinesPage() {
+export default async function HeadlinesPage() {
+  const headlines = await getBankItems("headlines");
+
   return (
     <div>
       <PageHeader
         title="📝 Banco de Headlines"
-        description={`${BANKS.headlines.length} títulos de alta conversão para anúncios, posts e páginas de captura.`}
+        description={`${headlines.length} títulos de alta conversão para anúncios, posts e páginas de captura.`}
       />
-      <BankExplorer items={BANKS.headlines} />
+      <BankExplorer items={headlines} />
     </div>
   );
 }

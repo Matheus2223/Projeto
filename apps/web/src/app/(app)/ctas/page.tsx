@@ -1,15 +1,17 @@
 import { PageHeader } from "@/components/shared/page-header";
 import { BankExplorer } from "@/components/shared/bank-explorer";
-import { BANKS } from "@/lib/data/generators/banks";
+import { getBankItems } from "@/lib/api/fetchers";
 
-export default function CtasPage() {
+export default async function CtasPage() {
+  const ctas = await getBankItems("ctas");
+
   return (
     <div>
       <PageHeader
         title="📣 Banco de CTA"
-        description={`${BANKS.ctas.length} chamadas para ação prontas para fechar mais conversões em qualquer post ou anúncio.`}
+        description={`${ctas.length} chamadas para ação prontas para fechar mais conversões em qualquer post ou anúncio.`}
       />
-      <BankExplorer items={BANKS.ctas} />
+      <BankExplorer items={ctas} />
     </div>
   );
 }

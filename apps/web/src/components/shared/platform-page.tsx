@@ -6,23 +6,26 @@ import { StatCard } from "./stat-card";
 import { TrendExplorer } from "./trend-explorer";
 import { PostExplorer } from "./post-explorer";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { TRENDS } from "@/lib/data/generators/trends";
-import { POSTS } from "@/lib/data/generators/posts";
 import type { Platform } from "@/lib/data/constants";
+import type { Trend, PostItem } from "@/lib/data/types";
 
 export function PlatformPage({
   platform,
   emoji,
   label,
   description,
+  allTrends,
+  allPosts,
 }: {
   platform: Platform;
   emoji: string;
   label: string;
   description: string;
+  allTrends: Trend[];
+  allPosts: PostItem[];
 }) {
-  const trends = TRENDS.filter((t) => t.platform === platform);
-  const posts = POSTS.filter((p) => p.platform === platform).sort((a, b) => b.metrics.views - a.metrics.views);
+  const trends = allTrends.filter((t) => t.platform === platform);
+  const posts = allPosts.filter((p) => p.platform === platform).sort((a, b) => b.metrics.views - a.metrics.views);
   const avgGrowth = trends.length ? Math.round(trends.reduce((s, t) => s + t.growthIndex, 0) / trends.length) : 0;
   const hashtagCounts = new Map<string, number>();
   trends.forEach((t) => t.hashtags.forEach((h) => hashtagCounts.set(h, (hashtagCounts.get(h) ?? 0) + 1)));
