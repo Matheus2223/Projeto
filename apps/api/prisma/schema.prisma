@@ -1,0 +1,332 @@
+// TrendHub ISP AI — Prisma schema
+// Models the full domain described in the product spec: trends, AI-generated
+// content, content banks, competitor intelligence, editorial calendar and
+// the daily automated pipeline. Uses pgvector for semantic search over
+// generated content (embeddings), which requires the "vector" Postgres
+// extension — see README.md for setup instructions.
+
+generator client {
+  provider        = "prisma-client"
+  output          = "../generated/prisma"
+  moduleFormat    = "cjs"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  extensions = [vector]
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum Platform {
+  INSTAGRAM
+  TIKTOK
+  FACEBOOK
+  YOUTUBE_SHORTS
+  THREADS
+  GOOGLE_TRENDS
+  GOOGLE_NEWS
+  REDDIT
+  X
+  PINTEREST
+  LINKEDIN
+  BLOG
+  ANATEL
+}
+
+enum TrendStatus {
+  CRESCENDO
+  EXPLODINDO
+  VIRAL
+  CAINDO
+  OPORTUNIDADE
+  SATURADO
+}
+
+enum ContentFormat {
+  REELS
+  STORIES
+  CARROSSEL
+  POST_UNICO
+  CAMPANHA
+  ANUNCIO
+  VIDEO_ENGRACADO
+  VIDEO_EMOCIONANTE
+  VIDEO_EDUCATIVO
+  VIDEO_COMERCIAL
+}
+
+enum Difficulty {
+  FACIL
+  MEDIO
+  DIFICIL
+}
+
+enum BankCategory {
+  HOOK
+  CTA
+  HEADLINE
+  QUESTION
+  OBJECTION
+  IDEA
+}
+
+enum PostStatus {
+  RASCUNHO
+  AGENDADO
+  PUBLICADO
+}
+
+enum CalendarStatus {
+  PLANEJADO
+  PRODUZIDO
+  PUBLICADO
+}
+
+enum ThreatSeverity {
+  BAIXA
+  MEDIA
+  ALTA
+}
+
+enum UpdateRunStatus {
+  SUCESSO
+  PARCIAL
+  FALHOU
+}
+
+enum Role {
+  ADMIN
+  EDITOR
+  VIEWER
+}
+
+// ---------------------------------------------------------------------------
+// Auth
+// ---------------------------------------------------------------------------
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  role         Role     @default(EDITOR)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  favorites ContentIdeaFavorite[]
+
+  @@map("users")
+}
+
+// ---------------------------------------------------------------------------
+// Trends & intelligence
+// ---------------------------------------------------------------------------
+
+model Trend {
+  id              String      @id @default(cuid())
+  title           String
+  summary         String
+  platform        Platform
+  segment         String
+  status          TrendStatus
+  growthIndex     Int
+  velocity        Float
+  origin          String
+  aiConfidence    Int
+  postSuggestion  String
+  state           String
+  city            String
+  hashtags        String[]
+  views           Int
+  engagementRate  Float
+  detectedAt      DateTime    @default(now())
+  createdAt       DateTime    @default(now())
+
+  @@index([platform, status])
+  @@index([detectedAt])
+  @@map("trends")
+}
+
+model ContentIdea {
+  id             String        @id @default(cuid())
+  format         ContentFormat
+  title          String
+  hook           String
+  script         String[]
+  estimatedTime  String
+  cta            String
+  caption        String
+  hashtags       String[]
+  objective      String
+  difficulty     Difficulty
+  recordingTime  String
+  equipment      String[]
+  aiPrompt       String
+  platform       Platform
+  segment        String
+  createdAt      DateTime      @default(now())
+
+  favoritedBy ContentIdeaFavorite[]
+
+  @@index([format])
+  @@index([createdAt])
+  @@map("content_ideas")
+}
+
+model ContentIdeaFavorite {
+  id       String      @id @default(cuid())
+  user     User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId   String
+  idea     ContentIdea @relation(fields: [ideaId], references: [id], onDelete: Cascade)
+  ideaId   String
+  createdAt DateTime   @default(now())
+
+  @@unique([userId, ideaId])
+  @@map("content_idea_favorites")
+}
+
+model BankItem {
+  id               String       @id @default(cuid())
+  category         BankCategory
+  text             String
+  platform         Platform
+  segment          String
+  performanceScore Int
+  usageCount       Int          @default(0)
+  tags             String[]
+  createdAt        DateTime     @default(now())
+
+  @@index([category])
+  @@map("bank_items")
+}
+
+model Post {
+  id            String        @id @default(cuid())
+  title         String
+  format        ContentFormat
+  platform      Platform
+  segment       String
+  caption       String
+  hashtags      String[]
+  status        PostStatus    @default(RASCUNHO)
+  scheduledAt   DateTime?
+  publishedAt   DateTime?
+  gradient      String
+  viewsCount    Int           @default(0)
+  likesCount    Int           @default(0)
+  commentsCount Int           @default(0)
+  sharesCount   Int           @default(0)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@index([status])
+  @@index([platform])
+  @@map("posts")
+}
+
+model Competitor {
+  id                    String   @id @default(cuid())
+  name                  String
+  handle                String
+  platforms             Platform[]
+  segment               String
+  followers             Int
+  postFrequencyPerWeek  Int
+  avgEngagementRate     Float
+  colorPalette          String[]
+  visualStyle           String
+  strengths             String[]
+  weaknesses            String[]
+  whatToCopy            String[]
+  whatToAvoid           String[]
+  opportunities         String[]
+  createdAt             DateTime @default(now())
+  lastAnalyzedAt        DateTime?
+
+  @@map("competitors")
+}
+
+model CalendarEntry {
+  id            String         @id @default(cuid())
+  date          DateTime
+  weekday       String
+  theme         String
+  objective     String
+  format        ContentFormat
+  platform      Platform
+  script        String
+  caption       String
+  cta           String
+  suggestedTime String
+  status        CalendarStatus @default(PLANEJADO)
+  createdAt     DateTime       @default(now())
+
+  @@unique([date])
+  @@map("calendar_entries")
+}
+
+model NewsItem {
+  id              String   @id @default(cuid())
+  title           String
+  source          String
+  category        String
+  publishedAt     DateTime
+  summary         String
+  relevanceScore  Int
+  url             String
+  createdAt       DateTime @default(now())
+
+  @@index([publishedAt])
+  @@map("news_items")
+}
+
+model DailyReport {
+  id                String   @id @default(cuid())
+  date              DateTime @unique
+  opportunities     Json
+  threats           Json
+  hotTopics         String[]
+  saturatedTopics   String[]
+  tomorrowForecast  String
+  weekForecast      String
+  viralProbability  Int
+  opportunityScore  Int
+  createdAt         DateTime @default(now())
+
+  @@map("daily_reports")
+}
+
+// Tracks each run of the 07:00 automated pipeline (see api/src/scheduler).
+model DailyUpdateLog {
+  id               String          @id @default(cuid())
+  runAt            DateTime        @default(now())
+  sourcesProcessed Int
+  trendsFound      Int
+  ideasGenerated   Int
+  trendsPruned     Int
+  status           UpdateRunStatus
+  errorMessage     String?
+  durationMs       Int?
+
+  @@map("daily_update_logs")
+}
+
+// Semantic search index for AI features (RAG over ideas/hooks/trends).
+// `embedding` is Unsupported because Prisma Client cannot type pgvector
+// columns; query/insert it with $queryRaw / $executeRaw (see
+// api/src/ai/embeddings.service.ts).
+model ContentEmbedding {
+  id         String   @id @default(cuid())
+  sourceType String // "trend" | "content_idea" | "bank_item"
+  sourceId   String
+  content    String
+  embedding  Unsupported("vector(1536)")
+  createdAt  DateTime @default(now())
+
+  @@unique([sourceType, sourceId])
+  @@map("content_embeddings")
+}
