@@ -1,9 +1,16 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
 import { TrendsService } from '../trends/trends.service';
+import { IdeasGenerationService } from '../ai/ideas-generation.service';
 import { SOURCE_INTEGRATIONS } from '../integrations/integrations.module';
-import type { SourceIntegration } from '../integrations/integration.interface';
+import type {
+  SourceIntegration,
+  CollectedTrend,
+} from '../integrations/integration.interface';
+import { TOPICS } from '../common/content-vocab';
+import type { DailyUpdateLog } from '../../generated/prisma/client';
 
 /**
  * The fully automated daily pipeline described in the product spec:
@@ -23,6 +30,8 @@ export class DailyUpdateService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly trends: TrendsService,
+    private readonly ideasGeneration: IdeasGenerationService,
+    private readonly config: ConfigService,
     @Inject(SOURCE_INTEGRATIONS)
     private readonly integrations: SourceIntegration[],
   ) {}
@@ -31,22 +40,19 @@ export class DailyUpdateService {
     name: 'daily-update',
     timeZone: 'America/Sao_Paulo',
   })
-  async run() {
+  async run(): Promise<DailyUpdateLog> {
     const startedAt = Date.now();
     this.logger.log('Starting daily update pipeline...');
 
     let sourcesProcessed = 0;
-    let trendsFound = 0;
     let hasFailure = false;
+    const allCollected: CollectedTrend[] = [];
 
     for (const integration of this.integrations) {
       try {
         const collected = await integration.collect();
-        trendsFound += collected.length;
+        allCollected.push(...collected);
         sourcesProcessed += 1;
-        // TODO: map `collected` (CollectedTrend[]) into Trend rows —
-        // compute growthIndex/velocity/status by diffing against the
-        // previous run's data for the same title/platform.
       } catch (error) {
         hasFailure = true;
         this.logger.error(
@@ -55,14 +61,35 @@ export class DailyUpdateService {
       }
     }
 
-    // TODO: generate new ContentIdea rows from the freshly collected
-    // trends (via AiService or a rule-based generator, mirroring
-    // apps/web/src/lib/ai/fallback-responder.ts).
-    const ideasGenerated = 0;
+    const { created: trendsCreated, updated: trendsUpdated } =
+      await this.trends.upsertCollected(allCollected);
+    const trendsFound = trendsCreated + trendsUpdated;
+
+    const topics =
+      allCollected.length > 0
+        ? allCollected.slice(0, 10).map((c) => c.title)
+        : TOPICS;
+    const ideasCount =
+      Number(this.config.get<string>('DAILY_IDEAS_COUNT')) || 12;
+
+    let ideasGenerated = 0;
+    try {
+      const result = await this.ideasGeneration.generateAndPersist(
+        topics,
+        ideasCount,
+      );
+      ideasGenerated = result.created;
+      this.logger.log(
+        `Generated ${ideasGenerated} ideas (usedAi=${result.usedAi}).`,
+      );
+    } catch (error) {
+      hasFailure = true;
+      this.logger.error(`Idea generation failed: ${(error as Error).message}`);
+    }
 
     const pruned = await this.trends.pruneOlderThan(14);
 
-    await this.prisma.dailyUpdateLog.create({
+    const log = await this.prisma.dailyUpdateLog.create({
       data: {
         sourcesProcessed,
         trendsFound,
@@ -74,7 +101,10 @@ export class DailyUpdateService {
     });
 
     this.logger.log(
-      `Daily update finished in ${Date.now() - startedAt}ms — ${sourcesProcessed}/${this.integrations.length} sources OK, ${trendsFound} trends found, ${pruned.count} pruned.`,
+      `Daily update finished in ${Date.now() - startedAt}ms — ${sourcesProcessed}/${this.integrations.length} sources OK, ` +
+        `${trendsCreated} new trends, ${trendsUpdated} refreshed, ${ideasGenerated} ideas generated, ${pruned.count} pruned.`,
     );
+
+    return log;
   }
 }

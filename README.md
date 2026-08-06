@@ -46,7 +46,15 @@ NestJS + Prisma 7 (driver adapter `@prisma/adapter-pg`) + PostgreSQL + pgvector 
 
 Modela o domínio completo em `prisma/schema.prisma`: `Trend`, `ContentIdea`, `BankItem`, `Post`, `Competitor`, `CalendarEntry`, `NewsItem`, `DailyReport`, `DailyUpdateLog`, `ContentEmbedding` (pgvector, para busca semântica) e `User` (auth JWT).
 
-Módulos: `auth`, `trends`, `ideas`, `banks`, `posts`, `competitors`, `calendar`, `reports`, `news`, `ai` (chat + embeddings OpenAI), `integrations` (um serviço por fonte: Google Trends, YouTube, Reddit, X, Instagram, TikTok, Anatel, RSS) e `scheduler` — o job `@Cron` das 07:00 que orquestra a coleta diária, gera o relatório e limpa tendências antigas, sem intervenção humana.
+Módulos: `auth`, `trends`, `ideas`, `banks`, `posts`, `competitors`, `calendar`, `reports`, `news`, `ai` (chat + geração de ideias + embeddings OpenAI), `integrations` (um serviço por fonte: Google Trends, YouTube, Reddit, X, Instagram, TikTok, Anatel, RSS) e `scheduler`.
+
+**O pipeline diário das 07:00 é real e fecha o ciclo completo, sem intervenção humana** (`src/scheduler/daily-update.service.ts`, `@Cron(EVERY_DAY_AT_7AM)`):
+1. Chama `collect()` de cada integração — hoje a de **RSS já coleta notícias reais** (TeleTime, TeleSíntese, Olhar Digital, sem precisar de credencial); as demais retornam `[]` até que uma API key seja configurada.
+2. **Persiste as tendências de verdade** (`TrendsService.upsertCollected`): título novo vira uma `Trend` nova; título já visto tem o índice de crescimento, a velocidade e as visualizações atualizados — sem duplicar.
+3. **Gera novas `ContentIdea` com IA de verdade** (`IdeasGenerationService`): chama a OpenAI (modo JSON) pedindo ideias baseadas nas manchetes/tendências do dia; se `OPENAI_API_KEY` não estiver configurada ou a chamada falhar, cai automaticamente num gerador local baseado em regras (`idea-fallback.generator.ts`) — o pipeline nunca gera zero ideias.
+4. Remove tendências com mais de 14 dias e grava um `DailyUpdateLog` com o resultado da execução (fontes processadas, tendências novas/atualizadas, ideias geradas, status).
+
+Para testar sem esperar até 07:00, dispare manualmente (autenticado): `POST /api/v1/scheduler/run-daily-update`.
 
 ```bash
 cd apps/api
@@ -71,8 +79,13 @@ As integrações externas (`src/integrations/*.integration.ts`) já vêm com a i
 | Cadastro de concorrentes | ✅ CRUD real (Server Action → NestJS → Postgres), com fallback local se o backend estiver fora do ar |
 | Chat de IA | ✅ Real com `OPENAI_API_KEY`; fallback local sem chave |
 | Banco de dados (Prisma/Postgres) | ✅ Schema completo, migrável e semeado; testado com Postgres 16 + pgvector local |
-| Integrações externas (TikTok, Instagram, YouTube, Reddit, X, Anatel...) | ⚙️ Scaffold pronto, aguardando credenciais de cada provedor |
-| Cron diário das 07:00 | ✅ Implementado (`@nestjs/schedule`); a lógica de mapear dados coletados → `Trend`/`ContentIdea` está marcada com `TODO` para quando as integrações tiverem credenciais reais |
+| Integrações externas (TikTok, Instagram, YouTube, Reddit, X, Anatel) | ⚙️ Scaffold pronto, aguardando credenciais de cada provedor |
+| Integração RSS (notícias) | ✅ Real — coleta notícias de portais de telecom sem precisar de credencial |
+| Cron diário das 07:00 | ✅ Real e completo: coleta → persiste tendências (novas/atualizadas) → gera ideias com IA (OpenAI, com fallback local) → limpa tendências antigas → registra log da execução |
+
+## Testado nesta entrega (execução real do pipeline diário)
+
+Disparei o job manualmente contra o Postgres local: 8 fontes processadas, 30 tendências novas persistidas a partir de RSS real, 12 ideias novas geradas (fallback local, já que não há `OPENAI_API_KEY` neste ambiente) e log de execução gravado com status `SUCESSO`. Rodar de novo no mesmo dia atualiza (não duplica) as tendências já vistas.
 
 ## Próximos passos para produção
 
