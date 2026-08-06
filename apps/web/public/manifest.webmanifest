@@ -1,0 +1,12 @@
+{
+  "name": "TrendHub ISP AI",
+  "short_name": "TrendHub",
+  "description": "Plataforma de inteligência de conteúdo com IA para provedores de internet.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0c0a13",
+  "theme_color": "#0c0a13",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
