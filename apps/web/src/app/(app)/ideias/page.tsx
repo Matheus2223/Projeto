@@ -1,23 +1,22 @@
-"use client";
-
 import { Sparkles } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { IdeaExplorer } from "@/components/shared/idea-explorer";
 import { Badge } from "@/components/ui/badge";
-import { CONTENT_IDEAS } from "@/lib/data/generators/ideas";
+import { getIdeas } from "@/lib/api/fetchers";
 import { CONTENT_FORMATS } from "@/lib/data/constants";
 
-export default function IdeiasPage() {
+export default async function IdeiasPage() {
+  const ideas = await getIdeas();
   const counts = CONTENT_FORMATS.map((format) => ({
     format,
-    count: CONTENT_IDEAS.filter((i) => i.format === format).length,
+    count: ideas.filter((i) => i.format === format).length,
   }));
 
   return (
     <div>
       <PageHeader
         title="💡 Ideias de Conteúdo"
-        description={`A IA já gerou ${CONTENT_IDEAS.length} ideias específicas para provedores de internet hoje — roteiro completo, gancho, CTA e hashtags prontos.`}
+        description={`A IA já gerou ${ideas.length} ideias específicas para provedores de internet hoje — roteiro completo, gancho, CTA e hashtags prontos.`}
         actions={
           <Badge variant="outline" className="gap-1.5 rounded-full border-primary/30 bg-primary/10 py-1.5 text-primary">
             <Sparkles className="size-3.5" /> Atualizado às 07:00
@@ -33,7 +32,7 @@ export default function IdeiasPage() {
         ))}
       </div>
 
-      <IdeaExplorer ideas={CONTENT_IDEAS} />
+      <IdeaExplorer ideas={ideas} />
     </div>
   );
 }

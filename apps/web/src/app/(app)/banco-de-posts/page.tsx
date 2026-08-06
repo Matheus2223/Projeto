@@ -1,15 +1,17 @@
 import { PageHeader } from "@/components/shared/page-header";
 import { PostExplorer } from "@/components/shared/post-explorer";
-import { POSTS } from "@/lib/data/generators/posts";
+import { getPosts } from "@/lib/api/fetchers";
 
-export default function BancoDePostsPage() {
+export default async function BancoDePostsPage() {
+  const posts = await getPosts();
+
   return (
     <div>
       <PageHeader
         title="🗂️ Banco de Posts"
         description="Todo o histórico de posts, rascunhos e publicações organizados em um só lugar."
       />
-      <PostExplorer posts={POSTS} showPostStatus />
+      <PostExplorer posts={posts} showPostStatus />
     </div>
   );
 }

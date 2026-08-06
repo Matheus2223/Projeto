@@ -1,11 +1,10 @@
-"use client";
-
 import { PageHeader } from "@/components/shared/page-header";
 import { PostExplorer } from "@/components/shared/post-explorer";
-import { POSTS } from "@/lib/data/generators/posts";
+import { getPosts } from "@/lib/api/fetchers";
 
-export default function ReelsPage() {
-  const reels = POSTS.filter((p) => p.format === "Reels").sort((a, b) => b.metrics.views - a.metrics.views);
+export default async function ReelsPage() {
+  const posts = await getPosts();
+  const reels = posts.filter((p) => p.format === "Reels").sort((a, b) => b.metrics.views - a.metrics.views);
 
   return (
     <div>

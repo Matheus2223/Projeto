@@ -1,27 +1,8 @@
-"use client";
+import { getTrends } from "@/lib/api/fetchers";
+import { GoogleTrendsClient } from "./google-trends-client";
 
-import { Search } from "lucide-react";
-import { PageHeader } from "@/components/shared/page-header";
-import { TopListCard } from "@/components/shared/top-list";
-import { TrendExplorer } from "@/components/shared/trend-explorer";
-import { TRENDS } from "@/lib/data/generators/trends";
-import { DASHBOARD_EXTRAS } from "@/lib/data/generators/dashboard-extras";
-
-export default function GoogleTrendsPage() {
-  const trends = TRENDS.filter((t) => t.platform === "google_trends");
-
-  return (
-    <div>
-      <PageHeader
-        title="📊 Google Trends"
-        description="Picos de busca relacionados a internet, provedores e conectividade em todo o Brasil."
-      />
-
-      <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <TopListCard title="Top pesquisas no Google" icon={Search} items={DASHBOARD_EXTRAS.topSearches} />
-      </div>
-
-      <TrendExplorer trends={trends} visibleFilters={{ platform: false }} />
-    </div>
-  );
+export default async function GoogleTrendsPage() {
+  const allTrends = await getTrends();
+  const trends = allTrends.filter((t) => t.platform === "google_trends");
+  return <GoogleTrendsClient trends={trends} />;
 }
